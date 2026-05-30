@@ -1,0 +1,14 @@
+artifact_uri: /Users/mtounekti/projects/telemed-urgence-ia/notebooks/../mlflow/797759043154675385/c1c38505087441f291b5e1452bebe9f8/artifacts
+end_time: 1780149767535
+entry_point_name: ''
+experiment_id: '797759043154675385'
+lifecycle_stage: active
+run_id: c1c38505087441f291b5e1452bebe9f8
+run_name: S1_multimodal__LogisticRegression
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1780149767516
+status: 3
+tags: []
+user_id: mtounekti

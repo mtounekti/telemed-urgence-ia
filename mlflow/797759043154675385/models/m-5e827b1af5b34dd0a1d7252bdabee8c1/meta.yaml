@@ -1,0 +1,10 @@
+artifact_location: /Users/mtounekti/projects/telemed-urgence-ia/notebooks/../mlflow/797759043154675385/models/m-5e827b1af5b34dd0a1d7252bdabee8c1/artifacts
+creation_timestamp: 1780150750197
+experiment_id: '797759043154675385'
+last_updated_timestamp: 1780150753394
+model_id: m-5e827b1af5b34dd0a1d7252bdabee8c1
+model_type: null
+name: model
+source_run_id: aad606c624bb48c2acdde2a685581479
+status: 2
+status_message: null

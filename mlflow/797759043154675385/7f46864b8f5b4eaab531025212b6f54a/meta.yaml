@@ -1,0 +1,14 @@
+artifact_uri: /Users/mtounekti/projects/telemed-urgence-ia/notebooks/../mlflow/797759043154675385/7f46864b8f5b4eaab531025212b6f54a/artifacts
+end_time: 1780149767550
+entry_point_name: ''
+experiment_id: '797759043154675385'
+lifecycle_stage: active
+run_id: 7f46864b8f5b4eaab531025212b6f54a
+run_name: S1_multimodal__RandomForest
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1780149767536
+status: 3
+tags: []
+user_id: mtounekti

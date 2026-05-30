@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Data (do no commit patients data)
+data/raw/*.csv
+data/raw/*.xlsx
+data/processed/*.csv
+
+# notebooks checkpoints
+.ipynb_checkpoints/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Models
+*.pkl
+*.joblib
+*.pt
+*.pth
+
+.env
+
+.DS_Store
+
+.vscode/
+.idea/

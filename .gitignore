@@ -18,8 +18,8 @@ mlruns/
 mlartifacts/
 
 # Models
-*.pkl
-*.joblib
+#*.pkl
+#*.joblib
 *.pt
 *.pth
 

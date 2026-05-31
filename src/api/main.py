@@ -112,3 +112,74 @@ def history(limit: int = 10):
         lines = f.readlines()
     entries = [json.loads(l) for l in lines[-limit:]]
     return {"count": len(entries), "history": entries}
+
+# Route: réentraînement monitoré
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score, recall_score
+import scipy.sparse as sp
+
+# Route: réentraînement monitoré
+@app.post("/retrain")
+def retrain():
+    try:
+        import joblib as jl
+        from sklearn.linear_model import LogisticRegression as LR
+        from sklearn.metrics import accuracy_score, f1_score, recall_score
+
+        scenarios = jl.load(os.path.join(BASE_DIR, "..", "data", "processed", "scenarios.joblib"))
+        y_train, y_test = jl.load(os.path.join(BASE_DIR, "..", "data", "processed", "labels.joblib"))
+
+        X_train = scenarios['S1_multimodal']['X_train']
+        X_test  = scenarios['S1_multimodal']['X_test']
+
+        # entraînement nouveau modèle
+        new_model = LR(max_iter=1000, class_weight='balanced', random_state=42)
+        new_model.fit(X_train, y_train)
+
+        # métriques nouveau modèle
+        y_pred_new = new_model.predict(X_test)
+        new_metrics = {
+            "accuracy"   : round(accuracy_score(y_test, y_pred_new), 4),
+            "f1_weighted": round(f1_score(y_test, y_pred_new, average='weighted'), 4),
+            "recall_c2"  : round(recall_score(y_test, y_pred_new, labels=[2], average=None)[0], 4)
+        }
+
+        # métriques modèle actuel
+        current_model = jl.load(MODEL_PATH)
+        y_pred_cur = current_model.predict(X_test)
+        current_metrics = {
+            "accuracy"   : round(accuracy_score(y_test, y_pred_cur), 4),
+            "f1_weighted": round(f1_score(y_test, y_pred_cur, average='weighted'), 4),
+            "recall_c2"  : round(recall_score(y_test, y_pred_cur, labels=[2], average=None)[0], 4)
+        }
+
+        # décision
+        improved = bool(new_metrics['recall_c2'] >= current_metrics['recall_c2'])
+        if improved:
+            jl.dump(new_model, MODEL_PATH)
+            status = "✅ Modèle mis à jour"
+        else:
+            status = "⚠️ Ancien modèle conservé"
+
+        # logging
+        log_entry = {
+            "type"           : "retrain",
+            "timestamp"      : datetime.now().isoformat(),
+            "status"         : status,
+            "new_metrics"    : new_metrics,
+            "current_metrics": current_metrics,
+            "model_updated"  : improved
+        }
+        with open(LOG_PATH, "a") as f:
+            f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+        return {
+            "status"         : status,
+            "model_updated"  : improved,
+            "new_metrics"    : new_metrics,
+            "current_metrics": current_metrics,
+            "timestamp"      : datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

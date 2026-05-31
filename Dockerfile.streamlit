@@ -1,0 +1,15 @@
+# Dockerfile Streamlit: Telemed Urgence IA
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    python -m spacy download fr_core_news_sm
+
+COPY src/ ./src/
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "src/ui/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

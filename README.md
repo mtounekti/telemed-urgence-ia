@@ -13,7 +13,7 @@
 
 ## Objectif
 
-Classification supervisée à 3 classes du degré d'urgence d'une demande entrante :
+Classification supervisée à 3 classes du degré d'urgence d'une demande entrante:
 
 | Classe | Label | Description |
 |--------|-------|-------------|
@@ -23,7 +23,7 @@ Classification supervisée à 3 classes du degré d'urgence d'une demande entran
 
 ---
 
-## 📊 Résultats
+## Résultats
 
 | Modèle | Scénario | Accuracy | F1-weighted | Recall Classe 2 |
 |--------|----------|----------|-------------|-----------------|
@@ -33,7 +33,7 @@ Classification supervisée à 3 classes du degré d'urgence d'une demande entran
 | LogisticRegression | S3 NLP seul | 91.07% | 91.16% | 90.85% |
 | LogisticRegression | S4 Tabulaire seul | 85.86% | 85.85% | 78.64% |
 
-> ⚠️ La métrique prioritaire est le **Recall de la classe 2** (urgence vitale) — une erreur sur ce cas est critique.
+> ⚠️ La métrique prioritaire est le **Recall de la classe 2** (urgence vitale)
 
 ---
 
@@ -42,9 +42,10 @@ Classification supervisée à 3 classes du degré d'urgence d'une demande entran
 ```
 [ Streamlit UI :8501 ] ──► [ FastAPI :8000 ] ──► [ LogisticRegression ]
                                   │
-                            [ Logs JSON ]
-                                  │
-                            [ MLflow UI :5000 ]
+                    ┌─────────────┴─────────────┐
+                    │                           │
+              [ inference.log ]           [ MLflow :5000 ]
+              (JSON structuré)
 ```
 
 ---
@@ -53,20 +54,27 @@ Classification supervisée à 3 classes du degré d'urgence d'une demande entran
 
 ```
 telemed-urgence-ia/
-├── .github/workflows/    # CI/CD GitHub Actions
+├── .github/workflows/
+│   └── ci.yml                # CI/CD GitHub Actions
 ├── data/
-│   ├── raw/              # Données brutes (non committées)
-│   └── processed/        # Scénarios preprocessés
+│   ├── raw/                  # Données brutes (non committées)
+│   └── processed/            # Scénarios preprocessés
 ├── notebooks/
 │   ├── 01_EDA.ipynb
 │   ├── 02_Preprocessing.ipynb
 │   └── 03_Modelisation.ipynb
 ├── src/
-│   ├── api/main.py       # FastAPI
-│   ├── models/           # Modèles entraînés
-│   └── ui/app.py         # Streamlit
+│   ├── api/
+│   │   ├── main.py           # Routes FastAPI
+│   │   ├── schemas.py        # Modèles Pydantic
+│   │   ├── predict.py        # Logique de prédiction
+│   │   └── logger.py         # Logging structuré JSON
+│   ├── models/               # Artefacts ML
+│   └── ui/app.py             # Interface Streamlit
+├── logs/
+│   └── inference.log         # Logs structurés JSON
 ├── tests/
-│   └── test_api.py       # Tests unitaires
+│   └── test_api.py           # 10 tests unitaires
 ├── Dockerfile
 ├── Dockerfile.streamlit
 ├── docker-compose.yml
@@ -93,19 +101,26 @@ pip install -r requirements.txt
 python -m spacy download fr_core_news_sm
 ```
 
-### 3. Lancer l'API
+### 3. Variables d'environnement
+
+```bash
+# Clé API pour sécuriser /retrain (optionnel, défaut: telemed-secret-key)
+export RETRAIN_API_KEY=votre-cle-secrete
+```
+
+### 4. Lancer l'API
 
 ```bash
 uvicorn src.api.main:app --reload --port 8000
 ```
 
-### 4. Lancer l'interface
+### 5. Lancer l'interface
 
 ```bash
 streamlit run src/ui/app.py
 ```
 
-### 5. Avec Docker
+### 6. Avec Docker
 
 ```bash
 docker-compose up --build
@@ -113,21 +128,22 @@ docker-compose up --build
 
 ---
 
-## 🔌 API Routes
+## API Routes
 
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| `GET` | `/health` | Santé de l'API |
-| `POST` | `/predict` | Prédiction niveau d'urgence |
-| `POST` | `/retrain` | Réentraînement monitoré |
-| `GET` | `/history` | Historique des inférences |
-| `GET` | `/docs` | Documentation Swagger |
+| Méthode | Route | Auth | Description |
+|---------|-------|------|-------------|
+| `GET` | `/health` | — | Santé de l'API |
+| `POST` | `/predict` | — | Prédiction niveau d'urgence |
+| `POST` | `/retrain` | `X-API-Key` 🔐 | Réentraînement monitoré |
+| `GET` | `/history` | — | Historique des inférences |
+| `GET` | `/docs` | — | Documentation Swagger |
 
 ### Exemple `/predict`
 
 ```bash
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
+  -H "X-Session-ID: session-001" \
   -d '{
     "sexe": "F",
     "age": 65,
@@ -154,7 +170,33 @@ Réponse :
     "urgence_relative": 0.0424,
     "urgence_vitale": 0.9576
   },
-  "timestamp": "2026-05-31T..."
+  "timestamp": "2026-05-31T20:45:01+00:00",
+  "duration_ms": 35.8
+}
+```
+
+### Exemple `/retrain`
+
+```bash
+curl -X POST http://localhost:8000/retrain \
+  -H "X-API-Key: votre-cle-secrete"
+```
+
+---
+
+## 📋 Logging structuré
+
+Chaque inférence est loggée dans `logs/inference.log` au format JSON :
+
+```json
+{
+  "event": "prediction",
+  "timestamp": "2026-05-31T20:45:01+00:00",
+  "session_id": "session-001",
+  "user_id": null,
+  "duration_ms": 35.8,
+  "input": { "sexe": "F", "age": 65, "..." },
+  "output": { "niveau_urgence": 2, "label": "Urgence vitale ⚠️" }
 }
 ```
 
@@ -167,13 +209,17 @@ pytest tests/ -v
 ```
 
 ```
-tests/test_api.py::test_health                  PASSED
-tests/test_api.py::test_predict_returns_valid_structure  PASSED
-tests/test_api.py::test_predict_critique        PASSED
-tests/test_api.py::test_predict_non_urgent      PASSED
-tests/test_api.py::test_predict_invalid_input   PASSED
-tests/test_api.py::test_history                 PASSED
-6 passed in 1.78s
+test_health                    PASSED
+test_predict_structure         PASSED
+test_predict_critique          PASSED
+test_predict_non_urgent        PASSED
+test_predict_invalid_input     PASSED
+test_predict_with_session_id   PASSED
+test_retrain_without_key       PASSED
+test_retrain_with_wrong_key    PASSED
+test_retrain_with_correct_key  PASSED
+test_history                   PASSED
+10 passed
 ```
 
 ---
@@ -192,11 +238,12 @@ mlflow ui --backend-store-uri mlflow/
 - `patient_id` supprimé dès le chargement (identifiant direct)
 - Variables sensibles isolées dans le **Scénario 2** (sexe, zone_vie, antécédents)
 - Données de santé = article 9 RGPD → base légale obligatoire
-- Toutes les inférences sont journalisées (traçabilité)
-- Modèle optimisé pour minimiser les faux négatifs sur la classe 2
+- Toutes les inférences sont journalisées avec horodatage UTC
+- Modèle optimisé pour minimiser les faux négatifs sur la classe 2 (urgence vitale)
+- `/retrain` protégé par clé API → contrôle d'accès strict
 
 ---
 
 ## Auteur
 
-**Maroua Tounekti** — Promo Upskilling Atlas CISIA — Mars 2026 :)
+**Maroua Tounekti** — Promo Upskilling Atlas CISIA — Mars 2026

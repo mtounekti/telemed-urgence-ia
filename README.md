@@ -199,4 +199,4 @@ mlflow ui --backend-store-uri mlflow/
 
 ## Auteur
 
-**Marou Tounekti** — Promo Upskilling Atlas CISIA — Mars 2026 :)
+**Maroua Tounekti** — Promo Upskilling Atlas CISIA — Mars 2026 :)

@@ -1,7 +1,7 @@
 # API FastAPI — Telemed Urgence IA
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 import joblib
 import scipy.sparse as sp
@@ -44,7 +44,8 @@ class PatientInput(BaseModel):
     duree_symptomes: float = Field(..., ge=0)
     description_symptomes: str = Field(..., min_length=3)
 
-    @validator('description_symptomes')
+    @field_validator('description_symptomes')
+    @classmethod
     def clean_text(cls, v):
         return v.strip()
 
@@ -58,7 +59,7 @@ LABELS = {
 # fonction de preprocessing
 def preprocess(data: PatientInput):
     import pandas as pd
-    df = pd.DataFrame([data.dict()])
+    df = pd.DataFrame([data.model_dump()])
     tab_features = tab_prep.transform(df)
     text_features = tfidf.transform([data.description_symptomes])
     return sp.hstack([tab_features, text_features])
@@ -93,7 +94,7 @@ def predict(patient: PatientInput):
         }
 
         # logging de l'inférence
-        log_entry = {**patient.dict(), **result}
+        log_entry = {**patient.model_dump(), **result}
         with open(LOG_PATH, "a") as f:
             f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 

@@ -233,6 +233,32 @@ mlflow ui --backend-store-uri mlflow/
 
 ---
 
+## 📊 Résultats
+
+### Baseline (hyperparamètres par défaut)
+
+| Modèle | Scénario | Accuracy | F1-weighted | Recall Classe 2 |
+|--------|----------|----------|-------------|-----------------|
+| LogisticRegression | S1 Multimodal | 94.94% | 94.92% | 93.22% |
+| LightGBM | S1 Multimodal | 95.34% | 95.32% | 90.85% |
+| XGBoost | S1 Multimodal | 95.49% | 95.47% | 89.83% |
+| MLP | S1 Multimodal | 94.44% | 94.43% | 88.47% |
+
+### Après tuning (RandomizedSearchCV — 30 itérations)
+
+| Modèle | Accuracy | F1-weighted | Recall Classe 2 | Gain |
+|--------|----------|-------------|-----------------|------|
+| **LogisticRegression** | **95.09%** | **95.08%** | **93.22%** ⭐ | ➡️ stable |
+| LightGBM | 95.97% | 95.83% | 93.22% | 📈 +2.37% |
+| XGBoost | 95.52% | 95.52% | 90.17% | 📈 +0.34% |
+| MLP | 95.53% | 95.53% | 92.54% | 📈 +4.07% |
+
+> ⚠️ La métrique prioritaire est le **Recall de la classe 2** (urgence vitale)
+> LogisticRegression est retenu comme modèle final : même Recall C2 que LightGBM tuné,
+> latence 10x plus faible (~35ms) et interprétabilité totale (Art. 22 RGPD)
+
+---
+
 ## ⚖️ Éthique & RGPD
 
 - `patient_id` supprimé dès le chargement (identifiant direct)

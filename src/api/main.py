@@ -1,16 +1,15 @@
-
-# API FastAPI
 from __future__ import annotations
 
 import os
 import time
 import joblib
-import copy
 from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 from src.api.schemas import (
     PatientInput, PredictionResponse,
@@ -32,7 +31,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
+# cors
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,13 +39,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Métriques Prometheus
+REQUEST_COUNT = Counter(
+    'telemed_requests_total',
+    'Nombre total de requêtes',
+    ['method', 'endpoint', 'status']
+)
+REQUEST_LATENCY = Histogram(
+    'telemed_request_latency_seconds',
+    'Latence des requêtes en secondes',
+    ['endpoint']
+)
+PREDICTION_COUNT = Counter(
+    'telemed_predictions_total',
+    'Nombre de prédictions par classe',
+    ['niveau_urgence']
+)
+
 # Clé API retrain
 RETRAIN_API_KEY = os.getenv("RETRAIN_API_KEY", "telemed-secret-key")
 
-# Routes
+
+@app.get("/metrics")
+def metrics():
+    """Endpoint Prometheus — métriques temps réel"""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
+    REQUEST_COUNT.labels(method="GET", endpoint="/health", status="200").inc()
     return HealthResponse(
         status="ok",
         version="1.0.0",
@@ -62,23 +84,30 @@ def predict(
     x_user_id: Annotated[str | None, Header()] = None,
 ) -> PredictionResponse:
     """
-    prédit le niveau d'urgence d'un patient
-    headers optionnels : X-Session-ID, X-User-ID pour la traçabilité
+    Prédit le niveau d'urgence d'un patient
+    Headers optionnels : X-Session-ID, X-User-ID pour la traçabilité
     """
     started_at = time.perf_counter()
 
     try:
         result = predict_one(patient.model_dump())
     except FileNotFoundError as exc:
+        REQUEST_COUNT.labels(method="POST", endpoint="/predict", status="503").inc()
         log_error("prediction_error", str(exc), patient.model_dump())
         raise HTTPException(status_code=503, detail="Modèle indisponible") from exc
     except Exception as exc:
+        REQUEST_COUNT.labels(method="POST", endpoint="/predict", status="500").inc()
         log_error("prediction_error", str(exc), patient.model_dump())
         raise HTTPException(status_code=500, detail="Erreur pendant l'inférence") from exc
 
     duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
 
-    # logging asynchrone
+    # métriques Prometheus
+    REQUEST_COUNT.labels(method="POST", endpoint="/predict", status="200").inc()
+    REQUEST_LATENCY.labels(endpoint="/predict").observe(duration_ms / 1000)
+    PREDICTION_COUNT.labels(niveau_urgence=str(result['niveau_urgence'])).inc()
+
+    # Logging structuré
     log_inference(
         payload=patient.model_dump(),
         result=result,
@@ -100,11 +129,12 @@ def retrain(
     x_api_key: Annotated[str | None, Header()] = None,
 ) -> RetrainResponse:
     """
-    Réentraîne le modèle de manière sécurisée.
+    Réentraîne le modèle de manière sécurisée
     Requiert le header X-API-Key
     """
     # Authentification
     if x_api_key != RETRAIN_API_KEY:
+        REQUEST_COUNT.labels(method="POST", endpoint="/retrain", status="403").inc()
         raise HTTPException(status_code=403, detail="Clé API invalide")
 
     try:
@@ -113,7 +143,7 @@ def retrain(
         from sklearn.metrics import accuracy_score, f1_score, recall_score
 
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        MODEL_PATH = os.path.join(BASE_DIR, "models", "best_model.joblib")
+        MODEL_PATH     = os.path.join(BASE_DIR, "models", "best_model.joblib")
         SCENARIOS_PATH = os.path.join(BASE_DIR, "..", "data", "processed", "scenarios.joblib")
         LABELS_PATH    = os.path.join(BASE_DIR, "..", "data", "processed", "labels.joblib")
 
@@ -123,7 +153,7 @@ def retrain(
         X_train = scenarios['S1_multimodal']['X_train']
         X_test  = scenarios['S1_multimodal']['X_test']
 
-        # new modèle
+        # Nouveau modèle
         new_model = LogisticRegression(
             max_iter=1000, class_weight='balanced', random_state=42
         )
@@ -137,7 +167,7 @@ def retrain(
             "recall_c2"  : round(float(recall_score(y_test, y_pred_new, labels=[2], average=None)[0]), 4),
         }
 
-        # métriques modèle actuel
+        # Métriques modèle actuel
         current_model = jl.load(MODEL_PATH)
         y_pred_cur = current_model.predict(X_test)
         current_metrics = {
@@ -146,18 +176,14 @@ def retrain(
             "recall_c2"  : round(float(recall_score(y_test, y_pred_cur, labels=[2], average=None)[0]), 4),
         }
 
-        # décision
+        # Décision
         improved = bool(new_metrics['recall_c2'] >= current_metrics['recall_c2'])
+        status = "✅ Modèle mis à jour" if improved else "⚠️ Ancien modèle conservé"
         if improved:
             jl.dump(new_model, MODEL_PATH)
-            status = "✅ Modèle mis à jour"
-        else:
-            status = "⚠️ Ancien modèle conservé"
 
-        # log en arrière-plan
-        background_tasks.add_task(
-            log_retrain, status, new_metrics, improved
-        )
+        REQUEST_COUNT.labels(method="POST", endpoint="/retrain", status="200").inc()
+        background_tasks.add_task(log_retrain, status, new_metrics, improved)
 
         return RetrainResponse(
             status=status,
@@ -168,13 +194,16 @@ def retrain(
         )
 
     except Exception as exc:
+        REQUEST_COUNT.labels(method="POST", endpoint="/retrain", status="500").inc()
         log_error("retrain_error", str(exc))
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/history")
 def history(limit: int = 10):
-    """return l'historique des inférences"""
+    """Retourne l'historique des inférences."""
+    REQUEST_COUNT.labels(method="GET", endpoint="/history", status="200").inc()
+
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     LOG_FILE = os.path.join(BASE_DIR, "..", "logs", "inference.log")
 

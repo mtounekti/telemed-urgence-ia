@@ -11,6 +11,8 @@ services:
       - ./logs:/app/logs
       - ./src/models:/app/src/models
     restart: unless-stopped
+    environment:
+      - RETRAIN_API_KEY=telemed-secret-key
 
   ui:
     build:
@@ -24,3 +26,41 @@ services:
     environment:
       - API_URL=http://api:8000
     restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: telemed-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: telemed-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: telemed-uptime
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  grafana_data:
+  uptime_data:

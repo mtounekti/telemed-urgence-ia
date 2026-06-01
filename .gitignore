@@ -30,3 +30,4 @@ mlartifacts/
 .vscode/
 .idea/
 mlflow/
+logs/

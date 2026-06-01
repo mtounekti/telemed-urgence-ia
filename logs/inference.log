@@ -25,3 +25,9 @@
 {"event": "prediction", "timestamp": "2026-06-01T22:41:06.625532+00:00", "session_id": null, "user_id": null, "duration_ms": 14.66, "input": {"sexe": "F", "age": 65.0, "zone_vie": "U", "source": "appel", "freq_cardiaque": 130.0, "tension_sys": 190.0, "temp": 39.8, "sat_oxygene": 85.0, "antecedents": 1, "duree_symptomes": 1.0, "description_symptomes": "Douleur thoracique intense"}, "output": {"niveau_urgence": 2, "label": "Urgence vitale ⚠️", "probabilites": {"non_urgent": 0.0, "urgence_relative": 0.0029, "urgence_vitale": 0.9971}}}
 {"event": "prediction", "timestamp": "2026-06-01T22:41:07.196528+00:00", "session_id": null, "user_id": null, "duration_ms": 16.46, "input": {"sexe": "F", "age": 65.0, "zone_vie": "U", "source": "appel", "freq_cardiaque": 130.0, "tension_sys": 190.0, "temp": 39.8, "sat_oxygene": 85.0, "antecedents": 1, "duree_symptomes": 1.0, "description_symptomes": "Douleur thoracique intense"}, "output": {"niveau_urgence": 2, "label": "Urgence vitale ⚠️", "probabilites": {"non_urgent": 0.0, "urgence_relative": 0.0029, "urgence_vitale": 0.9971}}}
 2 changes detected
+18 changes detected
+41 changes detected
+2 changes detected
+7 changes detected
+1 change detected
+2 changes detected

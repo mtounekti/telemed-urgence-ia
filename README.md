@@ -44,8 +44,11 @@ Classification supervisée à 3 classes du degré d'urgence d'une demande entran
                                   │
                     ┌─────────────┴─────────────┐
                     │                           │
-              [ inference.log ]           [ MLflow :5000 ]
-              (JSON structuré)
+              [ inference.log ]          [ feedback.db ]
+              (JSON structuré)           (SQLite)
+                    │
+              [ Prometheus :9090 ] ──► [ Grafana :3000 ]
+              [ Uptime Kuma :3001 ]
 ```
 
 ---
@@ -128,7 +131,7 @@ docker-compose up --build
 
 ---
 
-## API Routes
+## 🔌 API Routes
 
 | Méthode | Route | Auth | Description |
 |---------|-------|------|-------------|
@@ -136,6 +139,9 @@ docker-compose up --build
 | `POST` | `/predict` | — | Prédiction niveau d'urgence |
 | `POST` | `/retrain` | `X-API-Key` 🔐 | Réentraînement monitoré |
 | `GET` | `/history` | — | Historique des inférences |
+| `POST` | `/feedback` | — | Enregistrer un feedback utilisateur |
+| `GET` | `/feedbacks` | — | Historique des feedbacks |
+| `GET` | `/metrics` | — | Métriques Prometheus |
 | `GET` | `/docs` | — | Documentation Swagger |
 
 ### Exemple `/predict`
@@ -181,6 +187,27 @@ Réponse :
 curl -X POST http://localhost:8000/retrain \
   -H "X-API-Key: votre-cle-secrete"
 ```
+
+---
+
+## Monitoring
+
+| Service | URL | Rôle |
+|---------|-----|------|
+| Prometheus | :9090 | Collecte métriques (requêtes, latence, prédictions) |
+| Grafana | :3000 | Dashboard temps réel |
+| Uptime Kuma | :3001 | Uptime + alertes |
+
+---
+
+## Feedback utilisateur
+
+Après chaque prédiction, l'utilisateur peut soumettre un retour via l'interface Streamlit :
+- ✅ Prédiction correcte ou incorrecte
+- Niveau réel observé (optionnel)
+- Commentaire libre (optionnel)
+
+Les feedbacks sont stockés en **SQLite** (`data/feedback.db`) et consultables via `/feedbacks`.
 
 ---
 

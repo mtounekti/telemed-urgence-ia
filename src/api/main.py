@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
+from src.api.database import save_feedback, get_feedbacks
 from src.api.schemas import (
     PatientInput, PredictionResponse,
     RetrainResponse, HealthResponse
@@ -224,3 +225,39 @@ def history(limit: int = 10):
             continue
 
     return {"count": len(entries), "history": entries}
+
+@app.post("/feedback")
+def feedback(
+    niveau_predit: int,
+    utile: bool,
+    niveau_reel: int | None = None,
+    commentaire: str | None = None,
+    x_session_id: Annotated[str | None, Header()] = None,
+):
+    """save le feedback utilisateur après une prédiction"""
+    try:
+        feedback_id = save_feedback(
+            niveau_predit=niveau_predit,
+            utile=utile,
+            niveau_reel=niveau_reel,
+            commentaire=commentaire,
+            session_id=x_session_id,
+        )
+        REQUEST_COUNT.labels(method="POST", endpoint="/feedback", status="200").inc()
+        return {
+            "status": "✅ Feedback enregistré",
+            "feedback_id": feedback_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as exc:
+        REQUEST_COUNT.labels(method="POST", endpoint="/feedback", status="500").inc()
+        log_error("feedback_error", str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/feedbacks")
+def feedbacks(limit: int = 50):
+    """retourne l'historique des feedbacks"""
+    REQUEST_COUNT.labels(method="GET", endpoint="/feedbacks", status="200").inc()
+    data = get_feedbacks(limit=limit)
+    return {"count": len(data), "feedbacks": data}

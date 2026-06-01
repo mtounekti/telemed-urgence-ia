@@ -27,7 +27,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 pytest httpx
+          pip install spacy flake8 pytest httpx
 
       - name: Download spaCy model
         run: python -m spacy download fr_core_news_sm

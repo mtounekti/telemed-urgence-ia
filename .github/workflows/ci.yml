@@ -26,9 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install fastapi uvicorn pydantic
-          pip install -r requirements.txt
-          pip install spacy click flake8 pytest httpx
+          pip install -r requirements-ci.txt
 
       - name: Download spaCy model
         run: python -m spacy download fr_core_news_sm

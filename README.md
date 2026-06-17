@@ -21,7 +21,7 @@ Classification supervisée à 3 classes du degré d'urgence d'une demande entran
 | `1` | Urgence relative | Nécessite une consultation rapide |
 | `2` | Urgence vitale | Action immédiate requise |
 
-La métrique prioritaire est le **recall de la classe 2** : une urgence vitale manquée est une erreur bien plus grave qu'un cas non urgent sur-évalué. Toute la chaîne de décision — choix du modèle, métriques, seuil de classification — est pilotée par cette asymétrie de coût
+La métrique prioritaire est le **recall de la classe 2** : une urgence vitale manquée est une erreur bien plus grave qu'un cas non urgent sur-évalué. Toute la chaîne de décision — choix du modèle, métriques, seuil de classification — est pilotée par cette asymétrie de coût.
 
 ---
 
@@ -45,7 +45,7 @@ La métrique prioritaire est le **recall de la classe 2** : une urgence vitale m
 
 Le modèle final retenu est **XGBoost avec seuil de classe 2 ajusté à 0.01**. À recall et erreurs critiques strictement identiques à RandomForest, XGBoost conserve la meilleure accuracy et le meilleur F1 pondéré parmi les modèles atteignant ce niveau de sécurité.
 
-Détail de la démarche : `notebooks/03_Modelisation.ipynb`, `notebooks/04_Hyperparameter_Tuning.ipynb` et `analyses/synthese_ajustement_seuil_decision.md`.
+Détail de la démarche : `notebooks/03_Modelisation.ipynb`, `notebooks/04_Hyperparameter_Tuning.ipynb` et `analyses/synthese_ajustement_seuil_decision.md`
 
 ---
 
@@ -103,7 +103,8 @@ telemed-urgence-ia/
 ├── logs/
 │   └── inference.log                   # Logs structurés JSON
 ├── tests/
-│   └── test_api.py                     # 10 tests unitaires
+│   ├── fixtures.py                     # Données de test (patients types, cas limites)
+│   └── test_api.py                     # Tests unitaires (fonctionnels, bornes, mocking)
 ├── docker/
 │   └── prometheus.yml
 ├── Dockerfile
@@ -271,22 +272,37 @@ Chaque inférence est journalisée dans `logs/inference.log` au format JSON :
 ## Tests
 
 ```bash
-pytest tests/ -v
+pytest tests/ -v -m "not slow"
 ```
 
+Les tests sont organisés en trois familles :
+
+- **Tests fonctionnels de base** : santé de l'API, structure de la réponse, distinction urgence vitale et non urgente, historique
+- **Tests de validation des bornes physiologiques** : chaque variable contrainte (âge, fréquence cardiaque, tension, température, saturation, etc.) est testée individuellement contre une valeur hors limite via `tests/fixtures.py`, qui suit strictement la structure du dataset
+- **Tests avec mocking** (`monkeypatch`) : simulent un modèle absent (503), une erreur d'inférence inattendue (500), ou isolent la route `/predict` du vrai modèle chargé pour vérifier uniquement la construction de la réponse
+
 ```
-test_health                     PASSED
-test_predict_structure          PASSED
-test_predict_critique           PASSED
-test_predict_non_urgent         PASSED
-test_predict_invalid_input      PASSED
-test_predict_with_session_id    PASSED
-test_retrain_without_key        PASSED
-test_retrain_with_wrong_key     PASSED
-test_retrain_with_correct_key   PASSED
-test_history                    PASSED
-10 passed
+test_health                                   PASSED
+test_predict_structure                        PASSED
+test_predict_critique                         PASSED
+test_predict_non_urgent                       PASSED
+test_predict_invalid_input                    PASSED
+test_predict_with_session_id                  PASSED
+test_predict_limite_valide_acceptee           PASSED
+test_predict_urgence_relative                 PASSED
+test_predict_rejects_invalid_field            PASSED (x15, paramétré)
+test_predict_returns_503_when_model_missing   PASSED
+test_predict_returns_500_on_unexpected_error  PASSED
+test_predict_mocked_response_structure        PASSED
+test_retrain_without_key                      PASSED
+test_retrain_with_wrong_key                   PASSED
+test_retrain_with_correct_key                 PASSED
+test_retrain_wrong_key_with_monkeypatch_env   PASSED
+test_history                                  PASSED
+test_history_with_isolated_log_file           PASSED
 ```
+
+Fichier de fixtures : `tests/fixtures.py` — patients types (critique, non urgent, urgence relative, cas limite valide) et 15 cas de violation de bornes physiologiques, tous construits selon la structure exacte du `dataset_telemed.csv`.
 
 ---
 

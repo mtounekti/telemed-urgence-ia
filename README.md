@@ -1,6 +1,6 @@
-# 🏥 Telemed Urgence IA
+# Telemed Urgence IA
 
-> Système de diagnostic assisté et tri d'urgence multimodal en télémédecine  
+> Système de diagnostic assisté et tri d'urgence multimodal en télémédecine
 > Projet de fin de formation — Promo Upskilling Atlas CISIA — Mars 2026
 
 ![CI/CD](https://github.com/mtounekti/telemed-urgence-ia/actions/workflows/ci.yml/badge.svg)
@@ -13,34 +13,46 @@
 
 ## Objectif
 
-Classification supervisée à 3 classes du degré d'urgence d'une demande entrante:
+Classification supervisée à 3 classes du degré d'urgence d'une demande entrante :
 
 | Classe | Label | Description |
 |--------|-------|-------------|
 | `0` | Non urgent | Pas de caractère urgent |
 | `1` | Urgence relative | Nécessite une consultation rapide |
-| `2` | Urgence vitale ⚠️ | Action immédiate requise |
+| `2` | Urgence vitale | Action immédiate requise |
+
+La métrique prioritaire est le **recall de la classe 2** : une urgence vitale manquée est une erreur bien plus grave qu'un cas non urgent sur-évalué. Toute la chaîne de décision — choix du modèle, métriques, seuil de classification — est pilotée par cette asymétrie de coût
 
 ---
 
 ## Résultats
 
-| Modèle | Scénario | Accuracy | F1-weighted | Recall Classe 2 |
-|--------|----------|----------|-------------|-----------------|
-| **LogisticRegression** | **S1 Multimodal** | **94.94%** | **94.92%** | **93.22%** ⭐ |
-| LightGBM | S1 Multimodal | 95.34% | 95.32% | 90.85% |
-| XGBoost | S1 Multimodal | 95.49% | 95.47% | 89.83% |
-| LogisticRegression | S3 NLP seul | 91.07% | 91.16% | 90.85% |
-| LogisticRegression | S4 Tabulaire seul | 85.86% | 85.85% | 78.64% |
+### Comparaison initiale des modèles (scénario complet)
 
-> ⚠️ La métrique prioritaire est le **Recall de la classe 2** (urgence vitale)
+| Modèle | Accuracy | F1 pondéré | Recall classe 2 | Erreurs critiques |
+|--------|----------|-------------|------------------|--------------------|
+| LogisticRegression | 94.94% | 94.92% | 93.22% | 20 |
+| RandomForest | 94.05% | 94.04% | 90.85% | 27 |
+| XGBoost | 95.49% | 95.47% | 89.83% | 30 |
+
+### Après optimisation du seuil de décision (classe 2)
+
+| Modèle | Seuil retenu | Accuracy | F1 pondéré | Recall classe 2 | Erreurs critiques |
+|--------|--------------|----------|-------------|------------------|--------------------|
+| LogisticRegression | 0.15 | 92.61% | 92.66% | 96.61% | 10 |
+| RandomForest | 0.10 | 91.47% | 91.69% | 98.98% | 3 |
+| **XGBoost** | **0.01** | **93.80%** | **93.88%** | **98.98%** | **3** |
+
+Le modèle final retenu est **XGBoost avec seuil de classe 2 ajusté à 0.01**. À recall et erreurs critiques strictement identiques à RandomForest, XGBoost conserve la meilleure accuracy et le meilleur F1 pondéré parmi les modèles atteignant ce niveau de sécurité.
+
+Détail de la démarche : `notebooks/03_Modelisation.ipynb`, `notebooks/04_Hyperparameter_Tuning.ipynb` et `analyses/synthese_ajustement_seuil_decision.md`.
 
 ---
 
 ## Architecture
 
 ```
-[ Streamlit UI :8501 ] ──► [ FastAPI :8000 ] ──► [ LogisticRegression ]
+[ Streamlit UI :8501 ] ──► [ FastAPI :8000 ] ──► [ XGBoost + seuil optimisé ]
                                   │
                     ┌─────────────┴─────────────┐
                     │                           │
@@ -58,26 +70,42 @@ Classification supervisée à 3 classes du degré d'urgence d'une demande entran
 ```
 telemed-urgence-ia/
 ├── .github/workflows/
-│   └── ci.yml                # CI/CD GitHub Actions
+│   └── ci.yml                          # CI/CD GitHub Actions
+├── analyses/                           # Rapports générés par les scripts src/
+│   ├── synthese_modeles_baseline.md
+│   ├── synthese_scenarios_comparatifs.md
+│   ├── synthese_ajustement_seuil_decision.md
+│   └── synthese_vocabulaire_discriminant.md
 ├── data/
-│   ├── raw/                  # Données brutes (non committées)
-│   └── processed/            # Scénarios preprocessés
+│   ├── raw/                            # Données brutes (non versionnées)
+│   └── processed/                      # Scénarios prétraités
 ├── notebooks/
 │   ├── 01_EDA.ipynb
 │   ├── 02_Preprocessing.ipynb
-│   └── 03_Modelisation.ipynb
+│   ├── 03_Modelisation.ipynb
+│   ├── 04_Hyperparameter_Tuning.ipynb
+│   └── 05_Synthese_Finale.ipynb        # Journal de bord et démonstration
 ├── src/
 │   ├── api/
-│   │   ├── main.py           # Routes FastAPI
-│   │   ├── schemas.py        # Modèles Pydantic
-│   │   ├── predict.py        # Logique de prédiction
-│   │   └── logger.py         # Logging structuré JSON
-│   ├── models/               # Artefacts ML
-│   └── ui/app.py             # Interface Streamlit
+│   │   ├── main.py                     # Routes FastAPI
+│   │   ├── schemas.py                  # Modèles Pydantic
+│   │   ├── predict.py                  # Logique de prédiction + interprétation
+│   │   ├── database.py                 # Stockage SQLite du feedback
+│   │   └── logger.py                   # Logging structuré JSON
+│   ├── models/                         # Artefacts ML (preprocessors)
+│   ├── ui/app.py                       # Interface Streamlit
+│   ├── compare_models.py               # Comparaison initiale des modèles
+│   ├── compare_scenarios.py            # Comparaison des 4 scénarios
+│   ├── optimize_critical_errors.py     # Recherche du seuil optimal
+│   └── text_interpretation.py          # Vocabulaire discriminant par classe
+├── models/
+│   └── triage_model_optimized.joblib   # Modèle final servi par l'API
 ├── logs/
-│   └── inference.log         # Logs structurés JSON
+│   └── inference.log                   # Logs structurés JSON
 ├── tests/
-│   └── test_api.py           # 10 tests unitaires
+│   └── test_api.py                     # 10 tests unitaires
+├── docker/
+│   └── prometheus.yml
 ├── Dockerfile
 ├── Dockerfile.streamlit
 ├── docker-compose.yml
@@ -86,9 +114,9 @@ telemed-urgence-ia/
 
 ---
 
-## Installation & Lancement
+## Installation et lancement
 
-### 1. Cloner le repo
+### 1. Cloner le dépôt
 
 ```bash
 git clone https://github.com/mtounekti/telemed-urgence-ia.git
@@ -107,7 +135,7 @@ python -m spacy download fr_core_news_sm
 ### 3. Variables d'environnement
 
 ```bash
-# Clé API pour sécuriser /retrain (optionnel, défaut: telemed-secret-key)
+# Clé API pour sécuriser /retrain (optionnel, défaut : telemed-secret-key)
 export RETRAIN_API_KEY=votre-cle-secrete
 ```
 
@@ -123,7 +151,7 @@ uvicorn src.api.main:app --reload --port 8000
 streamlit run src/ui/app.py
 ```
 
-### 6. Avec Docker
+### 6. Avec Docker (API + UI + monitoring)
 
 ```bash
 docker-compose up --build
@@ -131,18 +159,18 @@ docker-compose up --build
 
 ---
 
-## 🔌 API Routes
+## API — Routes
 
-| Méthode | Route | Auth | Description |
-|---------|-------|------|-------------|
-| `GET` | `/health` | — | Santé de l'API |
-| `POST` | `/predict` | — | Prédiction niveau d'urgence |
-| `POST` | `/retrain` | `X-API-Key` 🔐 | Réentraînement monitoré |
+| Méthode | Route | Authentification | Description |
+|---------|-------|-------------------|--------------|
+| `GET` | `/health` | — | Santé de l'API et modèle actif |
+| `POST` | `/predict` | — | Prédiction du niveau d'urgence |
+| `POST` | `/retrain` | Clé API (`X-API-Key`) | Réentraînement monitoré |
 | `GET` | `/history` | — | Historique des inférences |
-| `POST` | `/feedback` | — | Enregistrer un feedback utilisateur |
+| `POST` | `/feedback` | — | Enregistrement d'un retour utilisateur |
 | `GET` | `/feedbacks` | — | Historique des feedbacks |
-| `GET` | `/metrics` | — | Métriques Prometheus |
-| `GET` | `/docs` | — | Documentation Swagger |
+| `GET` | `/metrics` | — | Métriques au format Prometheus |
+| `GET` | `/docs` | — | Documentation Swagger interactive |
 
 ### Exemple `/predict`
 
@@ -170,13 +198,21 @@ Réponse :
 ```json
 {
   "niveau_urgence": 2,
-  "label": "Urgence vitale ⚠️",
+  "label": "Urgence vitale",
   "probabilites": {
     "non_urgent": 0.0,
-    "urgence_relative": 0.0424,
-    "urgence_vitale": 0.9576
+    "urgence_relative": 0.0395,
+    "urgence_vitale": 0.9605
   },
-  "timestamp": "2026-05-31T20:45:01+00:00",
+  "model_name": "xgboost",
+  "threshold_class_2": 0.01,
+  "interpretation": [
+    "La description mentionne une douleur thoracique, signal souvent associé à un risque élevé.",
+    "La description mentionne un essoufflement, ce qui peut orienter vers une situation plus urgente.",
+    "Probabilités estimées par le modèle : classe 0: 0.0%, classe 1: 4.0%, classe 2: 96.1%. Classe retenue : 2.",
+    "Le modèle utilise un seuil plus prudent pour la classe 2 afin de limiter les urgences vitales manquées."
+  ],
+  "timestamp": "2026-06-17T10:45:01+00:00",
   "duration_ms": 35.8
 }
 ```
@@ -188,42 +224,45 @@ curl -X POST http://localhost:8000/retrain \
   -H "X-API-Key: votre-cle-secrete"
 ```
 
+Réentraîne un XGBoost sur les données disponibles, recherche automatiquement le meilleur seuil de classe 2, puis compare au modèle en production. Le nouveau modèle ne remplace l'ancien que s'il égale ou dépasse le recall classe 2 actuel.
+
 ---
 
 ## Monitoring
 
 | Service | URL | Rôle |
 |---------|-----|------|
-| Prometheus | :9090 | Collecte métriques (requêtes, latence, prédictions) |
-| Grafana | :3000 | Dashboard temps réel |
-| Uptime Kuma | :3001 | Uptime + alertes |
+| Prometheus | `:9090` | Collecte des métriques (requêtes, latence, prédictions par classe) |
+| Grafana | `:3000` | Tableau de bord temps réel |
+| Uptime Kuma | `:3001` | Surveillance de disponibilité |
 
 ---
 
 ## Feedback utilisateur
 
 Après chaque prédiction, l'utilisateur peut soumettre un retour via l'interface Streamlit :
-- ✅ Prédiction correcte ou incorrecte
+
+- Prédiction jugée correcte ou incorrecte
 - Niveau réel observé (optionnel)
 - Commentaire libre (optionnel)
 
-Les feedbacks sont stockés en **SQLite** (`data/feedback.db`) et consultables via `/feedbacks`.
+Les feedbacks sont stockés en SQLite (`data/feedback.db`) et consultables via `/feedbacks`.
 
 ---
 
-## 📋 Logging structuré
+## Logging structuré
 
-Chaque inférence est loggée dans `logs/inference.log` au format JSON :
+Chaque inférence est journalisée dans `logs/inference.log` au format JSON :
 
 ```json
 {
   "event": "prediction",
-  "timestamp": "2026-05-31T20:45:01+00:00",
+  "timestamp": "2026-06-17T10:45:01+00:00",
   "session_id": "session-001",
   "user_id": null,
   "duration_ms": 35.8,
-  "input": { "sexe": "F", "age": 65, "..." },
-  "output": { "niveau_urgence": 2, "label": "Urgence vitale ⚠️" }
+  "input": { "sexe": "F", "age": 65 },
+  "output": { "niveau_urgence": 2, "label": "Urgence vitale" }
 }
 ```
 
@@ -236,64 +275,63 @@ pytest tests/ -v
 ```
 
 ```
-test_health                    PASSED
-test_predict_structure         PASSED
-test_predict_critique          PASSED
-test_predict_non_urgent        PASSED
-test_predict_invalid_input     PASSED
-test_predict_with_session_id   PASSED
-test_retrain_without_key       PASSED
-test_retrain_with_wrong_key    PASSED
-test_retrain_with_correct_key  PASSED
-test_history                   PASSED
+test_health                     PASSED
+test_predict_structure          PASSED
+test_predict_critique           PASSED
+test_predict_non_urgent         PASSED
+test_predict_invalid_input      PASSED
+test_predict_with_session_id    PASSED
+test_retrain_without_key        PASSED
+test_retrain_with_wrong_key     PASSED
+test_retrain_with_correct_key   PASSED
+test_history                    PASSED
 10 passed
 ```
 
 ---
 
-## 📈 MLflow
+## MLflow
 
 ```bash
 mlflow ui --backend-store-uri mlflow/
 # http://127.0.0.1:5000
 ```
 
----
-
-## 📊 Résultats
-
-### Baseline (hyperparamètres par défaut)
-
-| Modèle | Scénario | Accuracy | F1-weighted | Recall Classe 2 |
-|--------|----------|----------|-------------|-----------------|
-| LogisticRegression | S1 Multimodal | 94.94% | 94.92% | 93.22% |
-| LightGBM | S1 Multimodal | 95.34% | 95.32% | 90.85% |
-| XGBoost | S1 Multimodal | 95.49% | 95.47% | 89.83% |
-| MLP | S1 Multimodal | 94.44% | 94.43% | 88.47% |
-
-### Après tuning (RandomizedSearchCV — 30 itérations)
-
-| Modèle | Accuracy | F1-weighted | Recall Classe 2 | Gain |
-|--------|----------|-------------|-----------------|------|
-| **LogisticRegression** | **95.09%** | **95.08%** | **93.22%** ⭐ | ➡️ stable |
-| LightGBM | 95.97% | 95.83% | 93.22% | 📈 +2.37% |
-| XGBoost | 95.52% | 95.52% | 90.17% | 📈 +0.34% |
-| MLP | 95.53% | 95.53% | 92.54% | 📈 +4.07% |
-
-> ⚠️ La métrique prioritaire est le **Recall de la classe 2** (urgence vitale)
-> LogisticRegression est retenu comme modèle final : même Recall C2 que LightGBM tuné,
-> latence 10x plus faible (~35ms) et interprétabilité totale (Art. 22 RGPD)
+Plus de 25 expériences tracées : comparaison des modèles, des 4 scénarios, du tuning d'hyperparamètres et des seuils de décision.
 
 ---
 
-## ⚖️ Éthique & RGPD
+## Les quatre scénarios de données
+
+| Scénario | Description | Recall classe 2 |
+|----------|--------------|------------------|
+| Multimodal complet | Données tabulaires et texte | 93.22% |
+| Sans variables sensibles | Retrait de sexe et zone_vie | 93.22% |
+| Texte seul | `description_symptomes` uniquement | 91.53% |
+| Tabulaire seul | Constantes vitales et âge | 78.64% |
+
+Le scénario sans variables sensibles obtient un recall identique au scénario complet, ce qui justifie le retrait de ces variables pour limiter le risque de biais, sans perte de performance mesurable.
+
+Détail : `analyses/synthese_scenarios_comparatifs.md`
+
+---
+
+## Éthique et RGPD
 
 - `patient_id` supprimé dès le chargement (identifiant direct)
-- Variables sensibles isolées dans le **Scénario 2** (sexe, zone_vie, antécédents)
-- Données de santé = article 9 RGPD → base légale obligatoire
-- Toutes les inférences sont journalisées avec horodatage UTC
-- Modèle optimisé pour minimiser les faux négatifs sur la classe 2 (urgence vitale)
-- `/retrain` protégé par clé API → contrôle d'accès strict
+- Variables sensibles isolées et testées séparément (scénario sans variables sensibles)
+- Les données de santé relèvent de l'article 9 du RGPD : minimisation des données conservées
+- Chaque inférence est journalisée avec horodatage UTC, session et durée
+- Le modèle est optimisé pour minimiser les faux négatifs sur la classe 2 (urgence vitale)
+- La route `/retrain` est protégée par une clé API
+- Le système reste un outil d'aide à la décision : la décision médicale finale appartient au professionnel de santé
+
+---
+
+## Documentation complémentaire
+
+- `notebooks/05_Synthese_Finale.ipynb` — journal de bord chronologique et démonstration d'inférence
+- `analyses/` — rapports détaillés générés par les scripts `src/`
 
 ---
 

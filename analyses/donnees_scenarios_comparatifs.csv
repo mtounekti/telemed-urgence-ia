@@ -1,0 +1,13 @@
+scenario,model,cv_accuracy,cv_f1_weighted,cv_recall_class_2,cv_critical_errors,cv_very_critical_errors,test_accuracy,test_f1_weighted,test_recall_class_2,test_critical_errors,test_very_critical_errors,test_inference_ms_per_row
+full,logistic_regression,0.9459,0.9461,0.9297,83,13,0.9494,0.9492,0.9322,20,6,0.0002
+full,random_forest,0.9339,0.9339,0.9052,112,22,0.9405,0.9404,0.9085,27,4,0.0188
+full,xgboost,0.949,0.9489,0.884,137,5,0.9549,0.9547,0.8983,30,2,0.0035
+without_sensitive,logistic_regression,0.9464,0.9466,0.9297,83,13,0.9479,0.9477,0.9322,20,6,0.0002
+without_sensitive,random_forest,0.9356,0.9357,0.9009,117,19,0.9439,0.9439,0.9085,27,3,0.019
+without_sensitive,xgboost,0.9495,0.9494,0.8865,134,4,0.9554,0.9552,0.9017,29,2,0.0033
+text_only,logistic_regression,0.8998,0.9013,0.9001,118,51,0.9107,0.9116,0.9085,27,11,0.0001
+text_only,random_forest,0.8997,0.9013,0.9026,115,51,0.9107,0.9117,0.9153,25,11,0.0135
+text_only,xgboost,0.8994,0.9009,0.9001,118,53,0.9107,0.9116,0.9085,27,13,0.0031
+clinical_only,logistic_regression,0.8601,0.8609,0.7832,256,11,0.8586,0.8585,0.7864,63,7,0.0
+clinical_only,random_forest,0.9018,0.9004,0.7146,337,5,0.9058,0.9044,0.7356,78,2,0.0188
+clinical_only,xgboost,0.8934,0.8923,0.7282,321,5,0.8978,0.8967,0.7559,72,3,0.0017

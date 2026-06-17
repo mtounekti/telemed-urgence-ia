@@ -192,11 +192,11 @@ def generate_report(results_df: pd.DataFrame, scenario: str, best_model_name: st
         f"comparer tous les scenarios, puis optimiser explicitement la detection des urgences vitales."
     )
 
-    report_path = os.path.join(REPORTS_DIR, "rapport_comparaison_initiale_modeles.md")
+    report_path = os.path.join(REPORTS_DIR, "synthese_modeles_baseline.md")
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    csv_path = os.path.join(REPORTS_DIR, "resultats_comparaison_initiale_modeles.csv")
+    csv_path = os.path.join(REPORTS_DIR, "donnees_modeles_baseline.csv")
     display_df.to_csv(csv_path, index=False)
 
     print(f"Rapport généré : {report_path}")

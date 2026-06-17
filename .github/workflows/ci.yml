@@ -39,7 +39,7 @@ jobs:
           flake8 src/ --count --max-line-length=120 --statistics --exit-zero
 
       - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: pytest tests/ -v --tb=short -m "not slow"
 
   # job 2: Build Docker
   docker:

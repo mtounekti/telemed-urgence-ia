@@ -180,6 +180,7 @@ srsly==2.5.3
 stack-data==0.6.3
 starlette==0.37.2
 streamlit==1.37.0
+tabulate==0.10.0
 tenacity==8.5.0
 terminado==0.18.1
 thinc==8.3.11

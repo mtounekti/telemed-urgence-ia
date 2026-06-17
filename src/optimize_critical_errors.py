@@ -51,6 +51,12 @@ def load_and_split(data_path: str):
 
 
 def preprocess_full(X_train, X_test):
+    """
+    charge et utilise les preprocessors officiels du projet
+    (src/models/tabular_preprocessor.joblib et tfidf_vectorizer.joblib),
+    en les ré-entraînant sur ce split train/test précis pour garantir
+    la cohérence avec le pipeline d'inférence de l'API
+    """
     numeric_pipeline = Pipeline([
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', StandardScaler())
@@ -72,6 +78,16 @@ def preprocess_full(X_train, X_test):
 
     X_train_full = sp.hstack([X_train_tab, X_train_text]).tocsr()
     X_test_full = sp.hstack([X_test_tab, X_test_text]).tocsr()
+
+    # Sauvegarde des preprocessors pour que l'API puisse les recharger
+    # et garantir la cohérence train/inférence
+    MODELS_SRC_DIR = os.path.join("src", "models")
+    os.makedirs(MODELS_SRC_DIR, exist_ok=True)
+    joblib.dump(preprocessor, os.path.join(MODELS_SRC_DIR, "tabular_preprocessor.joblib"))
+    joblib.dump(tfidf, os.path.join(MODELS_SRC_DIR, "tfidf_vectorizer.joblib"))
+    print(f"   ✅ Preprocessors sauvegardés dans {MODELS_SRC_DIR}/ "
+          f"(tabular_preprocessor.joblib, tfidf_vectorizer.joblib)")
+
     return X_train_full, X_test_full
 
 

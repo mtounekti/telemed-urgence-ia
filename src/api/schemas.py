@@ -28,6 +28,8 @@ class PredictionResponse(BaseModel):
     probabilites: dict[str, float]
     timestamp: str
     duration_ms: float
+    model_name: str
+    threshold_class_2: float
 
 class RetrainResponse(BaseModel):
     status: str

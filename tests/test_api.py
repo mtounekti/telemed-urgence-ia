@@ -19,6 +19,7 @@ PATIENT_NON_URGENT = {
     "description_symptomes": "Renouvellement ordonnance traitement habituel"
 }
 
+
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
@@ -28,6 +29,7 @@ def test_health():
     assert "version" in d
     assert "timestamp" in d
 
+
 def test_predict_structure():
     r = client.post("/predict", json=PATIENT_CRITIQUE)
     assert r.status_code == 200
@@ -36,45 +38,61 @@ def test_predict_structure():
     assert "label" in d
     assert "probabilites" in d
     assert "duration_ms" in d
-    assert "timestamp" in d 
+    assert "timestamp" in d
+    assert "model_name" in d
+    assert "threshold_class_2" in d
     assert d["niveau_urgence"] in [0, 1, 2]
+
 
 def test_predict_critique():
     r = client.post("/predict", json=PATIENT_CRITIQUE)
     assert r.status_code == 200
     assert r.json()["niveau_urgence"] == 2
 
+
 def test_predict_non_urgent():
     r = client.post("/predict", json=PATIENT_NON_URGENT)
     assert r.status_code == 200
     assert r.json()["niveau_urgence"] == 0
+
 
 def test_predict_invalid_input():
     bad = {**PATIENT_CRITIQUE, "sexe": "X"}
     r = client.post("/predict", json=bad)
     assert r.status_code == 422
 
+
 def test_predict_with_session_id():
     r = client.post("/predict", json=PATIENT_CRITIQUE,
-                    headers={"x-session-id": "test-session-001"})
+                     headers={"x-session-id": "test-session-001"})
     assert r.status_code == 200
     assert "duration_ms" in r.json()
+
 
 def test_retrain_without_key():
     r = client.post("/retrain")
     assert r.status_code == 403
 
+
 def test_retrain_with_wrong_key():
     r = client.post("/retrain", headers={"x-api-key": "mauvaise-cle"})
-    assert r.status_code == 403 
+    assert r.status_code == 403
 
+
+@pytest.mark.slow
 def test_retrain_with_correct_key():
+    """
+    Test plus lent : réentraîne un XGBoost complet et recherche le seuil optimal.
+    Marqué 'slow' pour pouvoir être exclu des runs rapides si besoin
+    (pytest -m "not slow").
+    """
     r = client.post("/retrain", headers={"x-api-key": "telemed-secret-key"})
     assert r.status_code == 200
     d = r.json()
     assert "model_updated" in d
     assert "new_metrics" in d
     assert "current_metrics" in d
+
 
 def test_history():
     r = client.get("/history")

@@ -30,6 +30,7 @@ class PredictionResponse(BaseModel):
     duration_ms: float
     model_name: str
     threshold_class_2: float
+    interpretation: list[str]
 
 class RetrainResponse(BaseModel):
     status: str

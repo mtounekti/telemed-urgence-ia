@@ -60,12 +60,11 @@ jobs:
           docker run -d -p 8000:8000 \
             --name telemed-test \
             telemed-api:${{ github.sha }}
-          
+
           # on attends que l'API démarre
-          sleep 10
-          
+          sleep 15
+          docker logs telemed-test
+
           # Vérifie que /health répond
           curl --fail http://localhost:8000/health
-          
-          # Arrête le container
           docker stop telemed-test

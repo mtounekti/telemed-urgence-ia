@@ -1,11 +1,19 @@
-# Dockerfile Streamlit: Telemed Urgence IA
 FROM python:3.11-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
+    grep -v "fr_core_news_sm" requirements.txt > requirements_clean.txt && \
+    pip install --no-cache-dir -r requirements_clean.txt && \
     python -m spacy download fr_core_news_sm
 
 COPY src/ ./src/

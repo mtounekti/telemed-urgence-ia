@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY src/ ./src/
 COPY data/processed/ ./data/processed/
+COPY models/ ./models/
 
 RUN mkdir -p logs
 

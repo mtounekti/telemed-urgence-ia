@@ -1,5 +1,6 @@
 # Logger structuré JSON
 
+import hashlib
 import json
 import logging
 import os
@@ -18,6 +19,35 @@ logging.basicConfig(
 
 logger = logging.getLogger("telemed")
 
+# Champ(s) contenant du texte libre patient : jamais journalisé en clair.
+TEXT_FIELDS_TO_HASH = ["description_symptomes"]
+HASH_TRUNCATE_LENGTH = 16  # caractères hex conservés (64 bits, largement suffisant pour de l'audit/dédup)
+
+
+def _fingerprint_text(text: str | None) -> dict:
+    """Remplace un texte libre par une empreinte SHA-256 tronquée et sa longueur.
+    Empêche toute reconstruction du verbatim patient à partir des logs,
+    tout en gardant un signal exploitable pour le débogage et la détection
+    de doublons (même texte -> même empreinte)."""
+    if not text:
+        return {"hash": None, "length": 0}
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return {"hash": digest[:HASH_TRUNCATE_LENGTH], "length": len(text)}
+
+
+def _sanitize_payload(payload: dict) -> dict:
+    """Retourne une copie du payload où les champs de texte libre sont
+    remplacés par leur empreinte (hash tronqué + longueur), jamais le texte brut."""
+    safe = dict(payload)
+    for field in TEXT_FIELDS_TO_HASH:
+        if field in safe:
+            text = safe.pop(field)
+            fp = _fingerprint_text(text)
+            safe[f"{field}_hash"] = fp["hash"]
+            safe[f"{field}_length"] = fp["length"]
+    return safe
+
+
 def log_inference(
     payload: dict,
     result: dict,
@@ -32,7 +62,7 @@ def log_inference(
         "session_id": session_id,
         "user_id": user_id,
         "duration_ms": duration_ms,
-        "input": payload,
+        "input": _sanitize_payload(payload),
         "output": result,
     }
     logger.info(json.dumps(record, ensure_ascii=False))
@@ -56,6 +86,6 @@ def log_error(event: str, error: str, payload: dict | None = None) -> None:
         "event": event,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "error": error,
-        "payload": payload,
+        "payload": _sanitize_payload(payload) if payload else None,
     }
     logger.error(json.dumps(record, ensure_ascii=False))

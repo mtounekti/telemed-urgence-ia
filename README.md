@@ -106,7 +106,12 @@ telemed-urgence-ia/
 │   ├── fixtures.py                     # Données de test (patients types, cas limites)
 │   └── test_api.py                     # Tests unitaires (fonctionnels, bornes, mocking)
 ├── docker/
-│   └── prometheus.yml
+│   ├── prometheus.yml
+│   └── grafana/
+│       ├── provisioning/
+│       │   ├── datasources/prometheus.yml
+│       │   └── dashboards/dashboard-provider.yml
+│       └── dashboards/telemed-dashboard.json
 ├── Dockerfile
 ├── Dockerfile.streamlit
 ├── docker-compose.yml
@@ -237,6 +242,8 @@ Réentraîne un XGBoost sur les données disponibles, recherche automatiquement 
 | Grafana | `:3000` | Tableau de bord temps réel |
 | Uptime Kuma | `:3001` | Surveillance de disponibilité |
 
+La source de données Prometheus et le dashboard Grafana sont provisionnés automatiquement au démarrage du conteneur (`docker/grafana/provisioning/`), sans configuration manuelle requise.
+
 ---
 
 ## Feedback utilisateur
@@ -346,8 +353,8 @@ Détail : `analyses/synthese_scenarios_comparatifs.md`
 
 ## Documentation complémentaire
 
-- `notebooks/05_Synthese_Finale.ipynb` — journal de bord chronologique et démonstration d'inférence
-- `analyses/` — rapports détaillés générés par les scripts `src/`
+- `notebooks/05_Synthese_Finale.ipynb` : journal de bord chronologique et démonstration d'inférence
+- `analyses/` : rapports détaillés générés par les scripts `src/`
 
 ---
 

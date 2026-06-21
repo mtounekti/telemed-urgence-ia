@@ -263,28 +263,37 @@ def retrain(
 def history(limit: int = 10):
     """Retourne l'historique des inférences."""
     REQUEST_COUNT.labels(method="GET", endpoint="/history", status="200").inc()
-
+ 
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     LOG_FILE = os.path.join(BASE_DIR, "..", "logs", "inference.log")
-
+ 
     if not os.path.exists(LOG_FILE):
         return {"count": 0, "history": []}
-
+ 
     import json
     with open(LOG_FILE, "r") as f:
         lines = f.readlines()
-
+ 
     entries = []
     for line in lines[-limit:]:
         try:
             entry = json.loads(line)
             if entry.get("event") == "prediction":
-                entries.append(entry)
+                # Aplatit input/output au niveau racine pour que les champs
+                # (niveau_urgence, age, sexe, label, ...) soient directement
+                # accessibles, comme attendu par le DataFrame côté UI.
+                flat_entry = {
+                    "timestamp": entry.get("timestamp"),
+                    "session_id": entry.get("session_id"),
+                    "duration_ms": entry.get("duration_ms"),
+                    **entry.get("input", {}),
+                    **entry.get("output", {}),
+                }
+                entries.append(flat_entry)
         except Exception:
             continue
-
+ 
     return {"count": len(entries), "history": entries}
-
 
 @app.post("/feedback")
 def feedback(
